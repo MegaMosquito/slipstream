@@ -76,6 +76,7 @@ make build
 
 7. Run the container using the RTSP input stream you setup in step 3
 
+```
 make dev
 # ... watch the output as it runs
 # ... wait for the "Deepstream RTSP pipeline example is starting" message, then
@@ -90,7 +91,7 @@ Once you have verified things with the above, take a look at the source code:
 deepstream-rtsp.py
 deepstream-rtsp.cfg
 ```
-The python code is heavily commented (almost half the files is comment lines):
+The python code is heavily commented (almost half of it is comment lines):
 ```
  $ wc -l deepstream-rtsp.py
 742 deepstream-rtsp.py
