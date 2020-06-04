@@ -24,6 +24,7 @@ run: validate-rtspinput clean
 	  --name ${NAME} \
 	  --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 \
 	  -e RTSPINPUT=${RTSPINPUT} \
+	  -e ARCH=$(ARCH) \
 	  -e IPADDR=$(IPADDR) \
 	  -p 8554:8554 \
 	  $(DOCKERHUB_ID)/$(NAME)_$(ARCH):$(VERSION)
@@ -33,6 +34,7 @@ dev: validate-rtspinput clean
 	  --name ${NAME} \
 	  --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 \
 	  -e RTSPINPUT=${RTSPINPUT} \
+	  -e ARCH=$(ARCH) \
 	  -e IPADDR=$(IPADDR) \
 	  -p 8554:8554 \
 	  $(DOCKERHUB_ID)/$(NAME)_$(ARCH):$(VERSION) /bin/bash

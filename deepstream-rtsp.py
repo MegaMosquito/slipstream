@@ -58,22 +58,6 @@ def debug(s):
 
 
 
-# The original examples require the code to be run fromn a specific
-# directory, which is inconvenient and error-prone. So I am explicitly
-# manipulating the search path here to remove the working directory
-# dependency:
-import sys
-# Oddly the python3 lib is not on the search path, so add that first
-sys.path.append('/usr/lib/python3.6')
-# For x86 hosts with NVIDIA graphics cards, this path is needed:
-#sys.path.append('/opt/nvidia/deepstream/deepstream-5.0/sources/python/bindings/x86_64')
-# For NVIDIA Jetson (arm64) hosts, this path is needed:
-sys.path.append('/opt/nvidia/deepstream/deepstream-5.0/sources/python/bindings/jetson')
-# This path is required to enable the "common" files from the python bindings
-sys.path.append('/opt/nvidia/deepstream/deepstream-5.0/sources/python/apps')
-# And there's local stuff
-sys.path.append('.')
-
 # When you edit the source you may need to also edit this CONFIG_FILE (here
 # in the same directory with this source file). It contains configuration
 # arguments for the inferencing "element" in the pipeline, and anything else
@@ -97,7 +81,26 @@ BITRATE = get_from_env('BITRATE', '4000000')
 RTSPINPUT = get_from_env('RTSPINPUT', '') # No default, so it's *REQUIRED*
 RTSPOUTPUTPORTNUM = get_from_env('RTSPOUTPUTPORTNUM', '8554')
 RTSPOUTPUTPATH = get_from_env('RTSPOUTPUTPATH', '/ds') # The output URL's path
+ARCH = get_from_env('ARCH', '') # No default, so it's *REQUIRED*
 IPADDR = get_from_env('IPADDR', '<IPADDRESS>') # host LAN IP, if given
+
+# The original examples require the code to be run fromn a specific
+# directory, which is inconvenient and error-prone. So I am explicitly
+# manipulating the search path here to remove the working directory
+# dependency:
+import sys
+# Oddly the python3 lib is not on the search path, so add that first
+sys.path.append('/usr/lib/python3.6')
+if 'aarch64' == ARCH:
+  # For NVIDIA Jetson (arm64) hosts, this path is needed:
+  sys.path.append('/opt/nvidia/deepstream/deepstream-5.0/sources/python/bindings/jetson')
+else:
+  # For x86 hosts with NVIDIA graphics cards, this path is needed:
+  sys.path.append('/opt/nvidia/deepstream/deepstream-5.0/sources/python/bindings/x86_64')
+# This path is required to enable the "common" files from the python bindings
+sys.path.append('/opt/nvidia/deepstream/deepstream-5.0/sources/python/apps')
+# And there's local stuff
+sys.path.append('.')
 
 # I switched the example to use standard temp files
 import tempfile
@@ -293,7 +296,7 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
         # set(red, green, blue, alpha); set to Black
         py_nvosd_text_params.text_bg_clr.set(0.0, 0.0, 0.0, 1.0)
         # Using pyds.get_string() to get display_text as string
-        debug(pyds.get_string(py_nvosd_text_params.display_text))
+        print(pyds.get_string(py_nvosd_text_params.display_text))
         pyds.nvds_add_display_meta_to_frame(frame_meta, display_meta)
         try:
             l_frame=l_frame.next
@@ -722,7 +725,7 @@ def main(args):
     #########################################################################
 
     # Start play back and listen to events
-    print("\n\n\n\n\n*** Deepstream RTSP pipeline example is starting...\n\n")
+    print("\n\n\n\n*** Deepstream RTSP pipeline example is starting...\n\n\n\n")
     pipeline.set_state(Gst.State.PLAYING)
     try:
         # Run forever
