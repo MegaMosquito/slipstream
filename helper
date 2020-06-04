@@ -1,0 +1,90 @@
+#!/bin/bash
+#
+# A helper script to simplify the collection of a few host-specific items...
+#
+# ./helper -a
+#   - returns the local hardware architecture
+# ./helper -g
+#   - returns the IP address of the first default gateway for this host
+# ./helper -i
+#   - returns one of the IP address on the first default interface for this host
+# ./helper -z
+#   - returns all of the above (really just for development convenience)
+#
+
+DEBUG=0
+if [ ${DEBUG} -gt 0 ]; then echo "DEBUG is on."; fi
+
+
+# Return the Horizon architecture string for this platform
+show_architecture () {
+  if [ ${DEBUG} -gt 0 ]; then echo "Architecture."; fi
+  RAW_ARCH=$(uname -m)
+  echo "${RAW_ARCH}"
+}
+
+# Return the default gateway address for this host
+show_gateway () {
+  if [ ${DEBUG} -gt 0 ]; then echo "Gateway Address."; fi
+  if [[ "$OSTYPE" == "linux-"* ]]; then
+    # Linux
+    GATEWAY=$(ip route | grep default | head -1 | cut -d' ' -f3)
+  elif [[ "$OSTYPE" == "darwin"* ]]; then
+    # MacOSX
+    GATEWAY=$(netstat -nr | grep default | head -1 | awk '{print$2}')
+  else
+    # Other. Best guess:
+    GATEWAY=$(ip route | grep default | head -1 | cut -d' ' -f3)
+  fi
+  echo "${GATEWAY}"
+}
+
+# Return the default interface's IP address for this host
+show_ip () {
+  if [ ${DEBUG} -gt 0 ]; then echo "IP Address."; fi
+  if [[ "$OSTYPE" == "linux-"* ]]; then
+    # Linux
+    CIDR=$(ip route | grep default | head -1 | sed 's/ proto dhcp / /' | cut -d' ' -f3 | cut -d'.' -f1-3)'.0/24'
+    if [ ${DEBUG} -gt 0 ]; then echo "CIDR=${CIDR}"; fi
+    HOST_IP=$(ip route | grep "${CIDR}" | head -1 | sed 's/ proto [a-z]*//' | cut -d' ' -f7)
+  elif [[ "$OSTYPE" == "darwin"* ]]; then
+    # MacOSX
+    HOST_IP=$(host `hostname` | head -1 | sed 's/.* //')
+  else
+    # Other. Best guess:
+    CIDR=$(ip route | grep default | head -1 | sed 's/ proto dhcp / /' | cut -d' ' -f3 | cut -d'.' -f1-3)'.0/24'
+    if [ ${DEBUG} -gt 0 ]; then echo "CIDR=${CIDR}"; fi
+    HOST_IP=$(ip route | grep "${CIDR}" | head -1 | sed 's/ proto [a-z]*//' | cut -d' ' -f7)
+  fi
+  echo "${HOST_IP}"
+}
+
+while getopts ":agiz" opt; do
+  case ${opt} in
+    a )
+      show_architecture;
+      exit 0;
+      ;;
+    g )
+      show_gateway;
+      exit 0;
+      ;;
+    i )
+      show_ip;
+      exit 0;
+      ;;
+    z )
+      echo -n "Architecture:   ";
+      show_architecture;
+      echo -n "Gateway:        ";
+      show_gateway;
+      echo -n "IP Address:     ";
+      show_ip;
+      exit 0;
+      ;;
+    \? ) echo "Usage: $0 [-a|-g|-i|-z]"
+      ;;
+  esac
+done
+
+
