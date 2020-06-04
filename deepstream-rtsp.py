@@ -205,22 +205,30 @@ def create_source_bin(index,uri):
 # This is the "PGIE" inferencing example from the original NVIDIA Deepstream
 # example in 
 #
-# This example detects:
+# This example detects these classes:
 #  - normal vehicles (cars, trucks, busses)
 #  - 2-wheeled vehicles (bicycles, mopeds, motorcycles)
 #  - people
 #  - road signs
 #
-# This code comes from:
-#     /opt/nvidia/deepstream/deepstream-5.0/sources/python/apps/deepstream-test1-rtsp-out
-#
-
-# Class IDS:
 PGIE_CLASS_ID_VEHICLE = 0
 PGIE_CLASS_ID_BICYCLE = 1
 PGIE_CLASS_ID_PERSON = 2
 PGIE_CLASS_ID_ROADSIGN = 3
 
+
+
+
+
+#
+# This function is the callback function we will attach to the probe.
+# (see "probe" below for details).
+#
+# It will get called when data arrives at the sink (input) pad for the
+# ODS element (the one that draws the boxes, and places text on the
+# video frames). This is a good place to probe because all the information
+# about the objects detected must be available here.
+#
 def osd_sink_pad_buffer_probe(pad,info,u_data):
     frame_number=0
     #Intiallizing object counter with 0.
@@ -327,18 +335,33 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
 #             |                    elementX                   |
 #             |                                               |
 #             |            Some processing happens            |
-#             |            here between the sources           |
-#             |            and the sinks.                     |
+#             |            here between the sink pads         |
+#             |            and the source pads.               |
 #             |                                               |
-# <input0> ------> sourcepad0                     sinkpad0 ------> <output0>
+# <input0> ------> sinkpad0                     sourcepad0 ------> <output0>
 #             |                                               |
-# <input1> ------> sourcepad1                     sinkpad1 ------> <output1>
+# <input1> ------> sinkpad1                     sourcepad1 ------> <output1>
 #             |                                               |
 #   ...       |       ...                            ...      |     ...
 #             |                                               |
-# <inputN> ------> sourcepadN                     sinkpadN ------> <outputN>
+# <inputN> ------> sinkpadN                     sourcepadN ------> <outputN>
 #             |                                               |
 #             +-----------------------------------------------+
+#
+# A "source element" typically starts a pipeline and has zero sink
+# pads since it receives nothing from other pipeline elements, and it
+# provides a single source pad which can feed data to other elements.
+#
+# A "sink element" typically ends a pipeline and as one sink pad (to
+# receive data from the penultimate element) and provides no source
+# pads for downstream elements (since there are none).
+#
+# Most other elements have a single sink pad for input and provide
+# a single source pad for output. Multiplexor (mux) elements receive
+# multiple inputs and produce a single output, so they have multiple
+# sink pads and a single source pad. De-multiplexor (demux) elements
+# perform the opposite function converting a single input on their
+# only sink pad into multiple outputs on their source pads.
 #
 # In general elements are created with:
 #    elementX = Gst.ElementFactory.make( ... )
@@ -346,19 +369,19 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
 #    if not elementX: sys.exit(1)
 # Elements are often configured with:
 #    elementX.set_property('property-name-goes-here', 'value goes here')
-# If needed, you can explicitly setup a source pad with:
-#    my_source_pad = elementX.get_static_pad("src")
-#    my_sink_pad = elementX.get_request_pad("dest")
 # When ready, elements are added to the pipeline:
 #    pipeline.add(elementX)
-# If a previous element needs to be linked to this element as a source:
+# If the source pad of a previous element (elementQ here) needs to
+# be linked to the sink pad of your element (elementX here) you can
+# use the link function, like this:
 #    elementQ.link(elementX)
-# The result will be:
+# The result will flow data from elementQ to elementX:
 #    elementQ -> elementX
 #    
-# NOTE: for the input (source) element and the output (sink) element, I
+# NOTE: for the initial "source element" and the final "sink element", I
 # have provided commented-out alternatives (e.g., file input, screen output,
-# and no output (the "fake" sink).
+# and no output (the "fake" sink). There is also a "fake" source available
+# but I am not sure what use that has.
 #
 
 def main(args):
@@ -384,7 +407,7 @@ def main(args):
     
 
     #########################################################################
-    # The first elments in the pipeline construct a stream source
+    # The first "source element" in the pipeline is a "bin" element
     #########################################################################
 
     # NOTE: An alternate option here could be a file as an input source:
@@ -401,9 +424,12 @@ def main(args):
     #     def create_source_bin(index,uri):
     # All of these functions were taken from this NVIDIA Deepstream example:
     #   /opt/nvidia/deepstream/deepstream-5.0/sources/python/apps/deepstream-imagedata-multistream
-    # This code sets up a source pad for this element that consumes th4ee RTSP
-    # stream "live", and configures a sink pad that can be linked to the next
-    # element in the pipeline.
+    # This element consumes a single RTSP stream "live", and multiplexes it
+    # together with zero other streams :-) so I should probably remove the
+    #`streammux` element altogether.
+    #
+    # I'm still learning about bins, but bins seem to be elements that
+    # contain a collection of other elements.
 
     # Source element for reading from an rtsp stream
     debug("Creating elements to receive one or more RTSP streams as a video input source")
@@ -464,7 +490,7 @@ def main(args):
 
 
     #########################################################################
-    # The next elment in the pipeline does the inferencing (on the GPU)
+    # The next element in the pipeline does the inferencing (on the GPU)
     #########################################################################
     
     debug("Creating an element to do inferencing (PGIE, nvinfer)")
@@ -489,7 +515,7 @@ def main(args):
 
 
     #########################################################################
-    # The next elment in the pipeline converts the output to RGBA format
+    # The next element in the pipeline converts the output to RGBA format
     #########################################################################
 
     debug("Creating an element that converts output video to RGBA format")
@@ -510,7 +536,7 @@ def main(args):
 
 
     #########################################################################
-    # The next elments in the pipeline draws boxes (requires RGBA input)
+    # The next element in the pipeline draws boxes (requires RGBA input)
     #########################################################################
 
     debug("Creating elements that draw boxes in the output video")
@@ -550,6 +576,11 @@ def main(args):
     if not osdsinkpad:
         sys.stderr.write("ERROR: Unable to get sink pad of nvosd\n")
         sys.exit(1)
+    # Attach a callback function to receive the data from this probe
+    # The probe's callback function displays in the terminal the object
+    # detection results metadata for each frame.
+    # See the "osd_sink_pad_buffer_probe" function definition above for
+    # details on how the probe receives the data and what it does with it.
     osdsinkpad.add_probe(Gst.PadProbeType.BUFFER, osd_sink_pad_buffer_probe, 0)
     
 
@@ -558,7 +589,7 @@ def main(args):
 
 
     #########################################################################
-    # The next elment in the pipeline is a caps filter
+    # The next element in the pipeline is a caps filter
     #########################################################################
 
     debug("Creating a caps filter element (to enforce data format restrictions to help maintain stream consistency and processing efficiency)")
@@ -577,7 +608,7 @@ def main(args):
 
 
     #########################################################################
-    # The next elment in the pipeline encodes the output (v4l2, h264)
+    # The next element in the pipeline encodes the output (v4l2, h264)
     #########################################################################
 
     debug("Creating an element that converts output video to H264 for 4VL2")
@@ -609,7 +640,7 @@ def main(args):
 
 
     #########################################################################
-    # The next elment in the pipeline encodes the output into RTP packets
+    # The next element in the pipeline encodes the output into RTP packets
     #########################################################################
 
     debug("Creating an element that encapsulates video into RTP packets for RTSP streaming")
@@ -636,7 +667,7 @@ def main(args):
 
 
     #########################################################################
-    # The final elment in the pipeline is the RTSP output stream sink
+    # The final "sink element" in the pipeline is the RTSP output stream sink
     #########################################################################
 
     # As an alternative, you could send the output nowhere (the "fake" sink)
