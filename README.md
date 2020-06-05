@@ -3,7 +3,7 @@
 A simple python example that uses NVIDIA Deepstream 5.
 
 I have written a blog article about this example as well:
-    https://darlingevil.com/riding-nvidia's-slipstream,-with-python/
+    https://darlingevil.com/riding-nvidias-slipstream-with-python/
 
 This container sets up an RTSP streaming pipeline, from your favorite RTSP input stream, through an NVIDIA Deepstream 5 pipeline, using the new Python bindings, and out to a local RTSP streaming server.
 

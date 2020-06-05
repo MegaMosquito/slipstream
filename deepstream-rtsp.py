@@ -225,7 +225,7 @@ PGIE_CLASS_ID_ROADSIGN = 3
 # (see "probe" below for details).
 #
 # It will get called when data arrives at the sink (input) pad for the
-# ODS element (the one that draws the boxes, and places text on the
+# OSD element (the one that draws the boxes, and places text on the
 # video frames). This is a good place to probe because all the information
 # about the objects detected must be available here.
 #
