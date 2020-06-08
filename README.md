@@ -64,9 +64,9 @@ docker login ...
 export DOCKERHUBID=...
 ```
 
-5. Download the Deepstream Python bindings (I cannot include them here since a developer account login is required for download). Use the URL below; create a free NVIDIA developer account if you don't already have one; then login and download the python bindings into this directory. Here's the URL:
+5. Download the Deepstream Python bindings (I cannot include them here since a developer account login is required for download). Use the URL below; create a free NVIDIA developer account if you don't already have one; then login, go to this page, agree to general terms and python terms, and then at the bottom of the page, click to download the python bindings into this directory. I developed this with v0.9. Here's the URL:
 
-https://developer.nvidia.com/deepstream_python_v0.5
+https://developer.nvidia.com/deepstream-getting-started
 
 6. Build the container
 
