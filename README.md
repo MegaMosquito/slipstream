@@ -5,7 +5,7 @@ A simple python example that uses NVIDIA Deepstream 5.
 I have written a blog article about this example as well:
     https://darlingevil.com/riding-nvidias-slipstream-with-python/
 
-This container sets up an RTSP streaming pipeline, from your favorite RTSP input stream, through an NVIDIA Deepstream 5 pipeline, using the new Python bindings, and out to a local RTSP streaming server.
+This container sets up an RTSP streaming pipeline, from one or more of your favorite RTSP input streams, through an NVIDIA Deepstream 5 pipeline, using the new Python bindings, and out to a local RTSP streaming server (tiling the inputs if you provided more than one).
 
 This example requires NVIDIA hardware. The container is *big* and takes quite a while to build on small machines like the nano. Currently this example works only on:
  - amd64 hardware with a recent NVIDIA GPU. I tested it on an NVIDIA T4, and
@@ -51,10 +51,11 @@ In my opinion, the structure I am using here is easier to understand, easier to 
 
 2. Install the open-horizon Agent, and configure it for your Management Hub
 
-3. Put your RTSP input URI into your shell environment, e.g.:
+3. Put one or more RTSP input URIs into `RTSPINPUT` in your shell environment (and if multiple, separate them with commas, no whitespace), e.g.:
 
 ```
 export RTSPINPUT='rtsp://x.x.x.x:8554/abc'
+export RTSPINPUT='rtsp://x.x.x.x:8554/abc,rtsp://x.x.x.x:8554/abc,rtsp://x.x.x.x:8554/abc'
 ```
 
 4. Setup your machiine for development
