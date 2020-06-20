@@ -1,19 +1,20 @@
-# A simple pythonn example using NVIDIA's Deepstream 5
+# A simple python example using NVIDIA's Deepstream 5
 
 # An example public RTSP stream you can use for development:
 #  export RTSPINPUT=rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov
 
 NAME:="slipstream"
-VERSION:="1.0.0"
+VERSION:="1.1.0"
 
-# Get the Open-Horizon architecture type, and IP address for this host
+# Get the hardware architecture type, and default LAN IP address for this host
+# If my "helper" program doesn't work for you here, just set them manually!
 ARCH:=$(shell ./helper -a)
 IPADDR:=$(shell ./helper -i)
-
 
 # Different base images for different hardware architectures:
 BASE_IMAGE.aarch64:=nvcr.io/nvidia/deepstream-l4t:5.0-dp-20.04-samples
 BASE_IMAGE.amd64:=nvcr.io/nvidia/deepstream:5.0-dp-20.04-triton
+BASE_IMAGE.x86_64:=nvcr.io/nvidia/deepstream:5.0-dp-20.04-triton
 
 run: validate-rtspinput clean
 	@echo "\n\n"
@@ -36,6 +37,7 @@ dev: validate-rtspinput clean
 	  -e RTSPINPUT="${RTSPINPUT}" \
 	  -e ARCH=$(ARCH) \
 	  -e IPADDR=$(IPADDR) \
+	  -e SHOW_FRAMES=no \
 	  -p 8554:8554 \
 	  $(DOCKERHUB_ID)/$(NAME)_$(ARCH):$(VERSION) /bin/bash
 

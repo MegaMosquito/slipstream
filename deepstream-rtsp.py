@@ -85,7 +85,9 @@ RTSPOUTPUTPORTNUM = get_from_env('RTSPOUTPUTPORTNUM', '8554')
 RTSPOUTPUTPATH = get_from_env('RTSPOUTPUTPATH', '/ds') # The output URL's path
 ARCH = get_from_env('ARCH', '') # No default, so it's *REQUIRED*
 IPADDR = get_from_env('IPADDR', '<IPADDRESS>') # host LAN IP, if given
-SHOW_FRAMES = 'no' != get_from_env('SHOW_FRAMES', 'no') # Default is don't show
+SHOW_FRAMES = 'no' != get_from_env('SHOW_FRAMES', 'yes') # Default is to show
+OUTPUT_WIDTH = int(get_from_env('OUTPUT_WIDTH', '1200')) # Output video width
+OUTPUT_HEIGHT = int(get_from_env('OUTPUT_HEIGHT', '600')) # Output video height
 
 RTSP_INPUTS = RTSPINPUT.split(',')
 
@@ -596,8 +598,6 @@ def main(args):
 
     debug("Creating an element to demultiplex the videos into tiles")
 
-    TILED_OUTPUT_WIDTH=2000
-    TILED_OUTPUT_HEIGHT=1000
     number_of_sources = len(RTSP_INPUTS)
     tiler=Gst.ElementFactory.make("nvmultistreamtiler", "nvtiler")
     if not tiler:
@@ -606,8 +606,8 @@ def main(args):
     tiler_columns=int(math.ceil((1.0*number_of_sources)/tiler_rows))
     tiler.set_property("rows",tiler_rows)
     tiler.set_property("columns",tiler_columns)
-    tiler.set_property("width", TILED_OUTPUT_WIDTH)
-    tiler.set_property("height", TILED_OUTPUT_HEIGHT)
+    tiler.set_property("width", OUTPUT_WIDTH)
+    tiler.set_property("height",OUTPUT_HEIGHT)
     if not is_aarch64():
         # Use CUDA unified memory in the pipeline so frames
         # can be easily accessed on CPU in Python.
