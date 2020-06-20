@@ -98,12 +98,16 @@ RTSP_INPUTS = RTSPINPUT.split(',')
 import sys
 # Oddly the python3 lib is not on the search path, so add that first
 sys.path.append('/usr/lib/python3.6')
-if 'aarch64' == ARCH:
+if 'arm64' == ARCH or 'aarch64' == ARCH:
   # For NVIDIA Jetson (arm64) hosts, this path is needed:
   sys.path.append('/opt/nvidia/deepstream/deepstream-5.0/sources/python/bindings/jetson')
-else:
+elif 'amd64' == ARCH or 'x86_64' == ARCH:
   # For x86 hosts with NVIDIA graphics cards, this path is needed:
   sys.path.append('/opt/nvidia/deepstream/deepstream-5.0/sources/python/bindings/x86_64')
+else:
+  sys.stderr.write('ERROR: Unsupported hardware architecture, "%s".\n' % ARCH)
+  sys.exit(1)
+
 # This path is required to enable the "common" files from the python bindings
 sys.path.append('/opt/nvidia/deepstream/deepstream-5.0/sources/python/apps')
 # And there's local stuff
