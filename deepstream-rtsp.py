@@ -67,6 +67,8 @@ CONFIG_FILE = 'deepstream-rtsp.cfg'
 # Basic dependencies
 import os
 import time
+import math
+
 
 # Additional configuration is pulled from the process environment, if these
 # variables are present. In some cases default values are provided to enable
@@ -83,6 +85,9 @@ RTSPOUTPUTPORTNUM = get_from_env('RTSPOUTPUTPORTNUM', '8554')
 RTSPOUTPUTPATH = get_from_env('RTSPOUTPUTPATH', '/ds') # The output URL's path
 ARCH = get_from_env('ARCH', '') # No default, so it's *REQUIRED*
 IPADDR = get_from_env('IPADDR', '<IPADDRESS>') # host LAN IP, if given
+SHOW_FRAMES = 'no' != get_from_env('SHOW_FRAMES', 'no') # Default is don't show
+
+RTSP_INPUTS = RTSPINPUT.split(',')
 
 # The original examples require the code to be run fromn a specific
 # directory, which is inconvenient and error-prone. So I am explicitly
@@ -287,7 +292,7 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
         # memory will not be claimed by the garbage collector.
         # Reading the display_text field here will return the C address of the
         # allocated string. Use pyds.get_string() to get the string content.
-        py_nvosd_text_params.display_text = "Frame Number={} Number of Objects={} Vehicle_count={} Person_count={}".format(frame_number, num_rects, obj_counter[PGIE_CLASS_ID_VEHICLE], obj_counter[PGIE_CLASS_ID_PERSON])
+        py_nvosd_text_params.display_text = "Frame={}  Objects={}  Vehicles={}  Cycles={}  Persons={}  Signs={}".format(frame_number, num_rects, obj_counter[PGIE_CLASS_ID_VEHICLE], obj_counter[PGIE_CLASS_ID_BICYCLE], obj_counter[PGIE_CLASS_ID_PERSON], obj_counter[PGIE_CLASS_ID_ROADSIGN])
 
         # Now set the offsets where the string should appear
         py_nvosd_text_params.x_offset = 10
@@ -304,7 +309,8 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
         # set(red, green, blue, alpha); set to Black
         py_nvosd_text_params.text_bg_clr.set(0.0, 0.0, 0.0, 1.0)
         # Using pyds.get_string() to get display_text as string
-        print(pyds.get_string(py_nvosd_text_params.display_text))
+        if SHOW_FRAMES:
+            print(pyds.get_string(py_nvosd_text_params.display_text))
         pyds.nvds_add_display_meta_to_frame(frame_meta, display_meta)
         try:
             l_frame=l_frame.next
@@ -388,8 +394,10 @@ def main(args):
 
     # Announce some useful info at startup
     print('\n\n\n\n')
-    print('RTSP input stream:  "%s"' % RTSPINPUT)
-    print('  (codec: %s, bitrate: %s)' % (CODEC, BITRATE))
+    print('Using codec: %s, and bitrate: %s' % (CODEC, BITRATE))
+    print('RTSP input streams (%d):' % (len(RTSP_INPUTS)))
+    for i in range(len(RTSP_INPUTS)):
+        print('  %d: "%s"' % (i, RTSP_INPUTS[i]))
     print('RTSP output stream: "rtsp://%s:%s%s"' % (IPADDR, RTSPOUTPUTPORTNUM, RTSPOUTPUTPATH))
     print('\n\n\n\n')
 
@@ -417,22 +425,36 @@ def main(args):
     #    sys.stderr.write("ERROR: Unable to create file input element!\n")
     #    sys.exit(1)
     
-    # In this example I am using an RTSP stream for input. The code for this
-    # is mostly within these functions above:
+    # In this example I am using a list of one or more RTSP streams for input.
+    # The code for this is mostly within these 3 functions above:
     #     def cb_newpad(decodebin, decoder_src_pad,data):
     #     def decodebin_child_added(child_proxy,Object,name,user_data):
     #     def create_source_bin(index,uri):
     # All of these functions were taken from this NVIDIA Deepstream example:
     #   /opt/nvidia/deepstream/deepstream-5.0/sources/python/apps/deepstream-imagedata-multistream
-    # This element consumes a single RTSP stream "live", and multiplexes it
-    # together with zero other streams :-) so I should probably remove the
-    #`streammux` element altogether.
+    # This element consumes RTSP streams "live", and multiplexes them
+    # together before passing the *combined* stream on to the next element
+    # in the pipeline. Each of these input RTSP streams is added to the
+    # pipeline as a "bin", and all of them are linked to the streammux
+    # element, something like this:
     #
-    # I'm still learning about bins, but bins seem to be elements that
-    # contain a collection of other elements.
+    #  +-------------+   +-------------------+
+    #  | stream0-bin +-->|sink-pad           |
+    #  +-------------+   |                   |
+    #                    |                   |
+    #  +-------------+   |                   |
+    #  | stream1-bin +-->|sink-pad           |   +--------------+
+    #  +-------------+   |                   +-->| next-element +--> ...
+    #                    | streammux-element |   +--------------+
+    #         ...        |                   |
+    #                    |                   |
+    #  +-------------+   |                   |
+    #  | streamN-bin +-->|sink-pad           |
+    #  +-------------+   +-------------------+
+    #
 
-    # Source element for reading from an rtsp stream
-    debug("Creating elements to receive one or more RTSP streams as a video input source")
+    # Multiplexing element with bins to read from multiple RTSP input streams
+    debug("Creating elements to receive RTSP streams as the video input")
 
     # Create nvstreammux instance to form batches from one or more sources.
     streammux = Gst.ElementFactory.make("nvstreammux", "Stream-muxer")
@@ -448,42 +470,47 @@ def main(args):
     pipeline.add(streammux)
 
     # Initialization
-    folder_name = tempfile.mkdtemp()
+    parent_folder_name = tempfile.mkdtemp()
     frame_count = {}
     saved_count = {}
 
-    # Loop here for each source (i)...  for now, just one source, so i=0:
-    i = 0
+    # Loop through the provided RTSP input sources
+    for i in range(len(RTSP_INPUTS)):
 
-    os.mkdir(folder_name+"/stream_"+str(i))
-    frame_count["stream_"+str(i)]=0
-    saved_count["stream_"+str(i)]=0
-    debug("Creating source_bin " + str(i))
-    #uri_name="rtsp://192.168.x.x:xxx/xxx" # <-- Your rtsp URI goes here!
-    uri_name=RTSPINPUT # See "RTSPINPUT" above (taken from process env)
-    if uri_name.find("rtsp://") == 0 :
-        is_live = True
-    source_bin=create_source_bin(i, uri_name)
-    if not source_bin:
-        sys.stderr.write("ERROR: Unable to create source bin\n")
-        sys.exit(1)
+        name = RTSP_INPUTS[i]
+        debug("--> input #%d: %s" % (i, name))
 
-    # Add the source_bin to the pipeline
-    pipeline.add(source_bin)
+        # Init for this stream
+        os.mkdir(parent_folder_name+"/stream_"+str(i))
+        frame_count["stream_"+str(i)]=0
+        saved_count["stream_"+str(i)]=0
+        if name.find("rtsp://") == 0 :
+            is_live = True
 
-    # Link the source_bin to the streammux
-    padname="sink_%u" % i
-    sinkpad=streammux.get_request_pad(padname)
-    if not sinkpad:
-        sys.stderr.write("ERROR: Unable to create sink pad bin\n")
-        sys.exit(1)
-    srcpad=source_bin.get_static_pad("src")
-    if not srcpad:
-        sys.stderr.write("ERROR: Unable to create src pad bin\n")
-        sys.exit(1)
-    srcpad.link(sinkpad)
+        # Create the bin for this stream, and make a source pad for its output
+        source_bin=create_source_bin(i, name)
+        if not source_bin:
+            sys.stderr.write("ERROR: Unable to create source bin \n")
+            sys.exit(1)
+        srcpad=source_bin.get_static_pad("src")
+        if not srcpad:
+            sys.stderr.write("ERROR: Unable to create src pad bin \n")
+            sys.exit(1)
 
-    debug("Input source elements have been added to the pipeline")
+        # Add this bin to the pipeline
+        pipeline.add(source_bin)
+
+        # Get a sink pad in the streammux element
+        padname="sink_%u" %i
+        sinkpad= streammux.get_request_pad(padname)
+        if not sinkpad:
+            sys.stderr.write("ERROR: Unable to create sink pad bin \n")
+            sys.exit(1)
+
+        # Link the source pad on this bin to the sink pad in streammux
+        srcpad.link(sinkpad)
+
+    debug("All input source elements have been added to the pipeline")
 
 
 
@@ -535,6 +562,69 @@ def main(args):
 
 
 
+
+    #########################################################################
+    # At this point in the pipeline, add a "probe" on the `nvvidconv` input
+    #########################################################################
+
+    debug("Creating a probe to view the inferencing metadata")
+
+    # This probe will consume the meta data generated by nvinfer
+    # and provide it to OSD later.
+    # The probe is added to the sink pad of the OSD element that
+    # follows nvinfer (so it has all object detection metadata).
+    # That element is nvvidconv:
+    followingsinkpad = nvvidconv.get_static_pad("sink")
+    if not followingsinkpad:
+        sys.stderr.write("ERROR: Unable to get sink pad of nvosd\n")
+        sys.exit(1)
+    # Attach a callback function to receive the data from this probe
+    # The probe's callback function displays in the terminal the object
+    # detection results metadata for each frame.
+    # See the "osd_sink_pad_buffer_probe" function definition above for
+    # details on how the probe receives the data and what it does with it.
+    followingsinkpad.add_probe(Gst.PadProbeType.BUFFER, osd_sink_pad_buffer_probe, 0)
+    
+
+
+
+
+
+    #########################################################################
+    # Next element de-multiplexes the input streams into tiles in one stream
+    #########################################################################
+
+    debug("Creating an element to demultiplex the videos into tiles")
+
+    TILED_OUTPUT_WIDTH=2000
+    TILED_OUTPUT_HEIGHT=1000
+    number_of_sources = len(RTSP_INPUTS)
+    tiler=Gst.ElementFactory.make("nvmultistreamtiler", "nvtiler")
+    if not tiler:
+        sys.stderr.write(" Unable to create tiler \n")
+    tiler_rows=int(math.sqrt(number_of_sources))
+    tiler_columns=int(math.ceil((1.0*number_of_sources)/tiler_rows))
+    tiler.set_property("rows",tiler_rows)
+    tiler.set_property("columns",tiler_columns)
+    tiler.set_property("width", TILED_OUTPUT_WIDTH)
+    tiler.set_property("height", TILED_OUTPUT_HEIGHT)
+    if not is_aarch64():
+        # Use CUDA unified memory in the pipeline so frames
+        # can be easily accessed on CPU in Python.
+        mem_type = int(pyds.NVBUF_MEM_CUDA_UNIFIED)
+        streammux.set_property("nvbuf-memory-type", mem_type)
+        nvvidconv.set_property("nvbuf-memory-type", mem_type)
+        nvvidconv1.set_property("nvbuf-memory-type", mem_type)
+        tiler.set_property("nvbuf-memory-type", mem_type)
+    pipeline.add(tiler)
+    nvvidconv.link(tiler)
+    debug("The demultiplexing/tiling element was added and linked")
+
+
+
+
+
+
     #########################################################################
     # The next element in the pipeline draws boxes (requires RGBA input)
     #########################################################################
@@ -554,35 +644,10 @@ def main(args):
     # Add the two OSD elements to the pipeline, then link them togther and to the convertor
     pipeline.add(nvosd)
     pipeline.add(nvvidconv_postosd)
-    nvvidconv.link(nvosd)
+    tiler.link(nvosd)
     nvosd.link(nvvidconv_postosd)
     debug("The OSD element has been added to the pipeline, and linked")
 
-
-
-
-
-
-    #########################################################################
-    # At this point in the pipeline, add a "probe"
-    #########################################################################
-
-    debug("Creating a probe to view the inferencing metadata")
-
-    # This probe will provide the meta data generated by OSD
-    # The probe is added to the sink pad of the OSD element (which has
-    # all the object detection metadata).
-    osdsinkpad = nvosd.get_static_pad("sink")
-    if not osdsinkpad:
-        sys.stderr.write("ERROR: Unable to get sink pad of nvosd\n")
-        sys.exit(1)
-    # Attach a callback function to receive the data from this probe
-    # The probe's callback function displays in the terminal the object
-    # detection results metadata for each frame.
-    # See the "osd_sink_pad_buffer_probe" function definition above for
-    # details on how the probe receives the data and what it does with it.
-    osdsinkpad.add_probe(Gst.PadProbeType.BUFFER, osd_sink_pad_buffer_probe, 0)
-    
 
 
 
@@ -700,7 +765,11 @@ def main(args):
     sink.set_property('host', UDP_MULTICAST_ADDRESS)
     sink.set_property('port', UDP_MULTICAST_PORT)
     sink.set_property('async', False)
-    sink.set_property('sync', 1)
+
+    # The command below tells it to sync to a clock (1) or don't sync (0).
+    # I find that using 1 slows things down, but it seems much more regular.
+    # When I use 0 it is much faster but it freezes intermittently.
+    sink.set_property("sync", 0)
     
     # Add the RTSP output stream sink element to the pipeline, then link the RTP paket encoder onto it
     pipeline.add(sink)

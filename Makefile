@@ -23,7 +23,7 @@ run: validate-rtspinput clean
 	docker run -d \
 	  --name ${NAME} \
 	  --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 \
-	  -e RTSPINPUT=${RTSPINPUT} \
+	  -e RTSPINPUT="${RTSPINPUT}" \
 	  -e ARCH=$(ARCH) \
 	  -e IPADDR=$(IPADDR) \
 	  -p 8554:8554 \
@@ -33,7 +33,7 @@ dev: validate-rtspinput clean
 	docker run -it -v `pwd`:/outside \
 	  --name ${NAME} \
 	  --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 \
-	  -e RTSPINPUT=${RTSPINPUT} \
+	  -e RTSPINPUT="${RTSPINPUT}" \
 	  -e ARCH=$(ARCH) \
 	  -e IPADDR=$(IPADDR) \
 	  -p 8554:8554 \
