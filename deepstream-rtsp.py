@@ -618,7 +618,6 @@ def main(args):
         mem_type = int(pyds.NVBUF_MEM_CUDA_UNIFIED)
         streammux.set_property("nvbuf-memory-type", mem_type)
         nvvidconv.set_property("nvbuf-memory-type", mem_type)
-        nvvidconv1.set_property("nvbuf-memory-type", mem_type)
         tiler.set_property("nvbuf-memory-type", mem_type)
     pipeline.add(tiler)
     nvvidconv.link(tiler)
