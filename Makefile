@@ -58,7 +58,7 @@ clean: validate-dockerhubid
 
 validate-python-binding:
 	@if [ "" = "$(wildcard deepstream_python_v*.tbz2)" ]; \
-	  then { echo "***** ERROR: First download the Deepstream Python bindings into this directory!"; echo "*****        USE this URL:  https://developer.nvidia.com/deepstream_python_v0.5"; exit 1; }; \
+	  then { echo "***** ERROR: First download the Deepstream Python bindings into this directory!"; echo "*****        USE this URL:  https://developer.nvidia.com/python-sample-apps-bindings-v09"; exit 1; }; \
         fi
 	@sleep 1
 
