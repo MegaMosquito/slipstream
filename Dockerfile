@@ -28,8 +28,12 @@ RUN apt-get update --fix-missing && apt-get install -y \
 #       to make these bindings available only when logged-in to an NVIDIA
 #       developer account.
 #
-# Use this URL to download the file (you will be required to login first).
-#       https://developer.nvidia.com/deepstream_python_v0.5
+# Use the URL below; create a free NVIDIA developer account if you don't
+# already have one; then login, go to this page, agree to general terms
+# and python terms, and then at the bottom of the page, click to download
+# the python bindings into this directory. (I developed this with v0.9).
+# Here's the URL:
+#     https://developer.nvidia.com/deepstream-getting-started
 #
 # Place the resulting file in this directory and then you can "make build"
 #
